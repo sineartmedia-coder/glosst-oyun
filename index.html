@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Glamour Catch - Makyaj Macerası</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div id="game-container">
+        <canvas id="gameCanvas"></canvas>
+        
+        <div id="ui-layer">
+            <div id="score-container">
+                <span class="label">SKOR:</span>
+                <span id="scoreText">000</span>
+            </div>
+            
+            <div id="lives-container">
+                <!-- Kalpler buraya JS ile eklenecek -->
+            </div>
+
+            <div id="mute-container">
+                <button id="muteBtn">🔊</button>
+            </div>
+            
+            <div id="start-screen" class="overlay">
+                <h1>GLAMOUR CATCH</h1>
+                <p>Makyaj malzemelerini topla, kırık aynalardan kaç!</p>
+                <button id="startBtn">OYUNA BAŞLA</button>
+            </div>
+            
+            <div id="game-over-screen" class="overlay hidden">
+                <h1>EYVAH!</h1>
+                <p>Güzelliğin bozuldu! Skorun:</p>
+                <div id="finalScore">0</div>
+                <button id="restartBtn">TEKRAR DENE</button>
+            </div>
+
+            <div id="damage-flash"></div>
+            
+            <div id="level-notification" class="hidden">SEVİYE 1</div>
+        </div>
+    </div>
+    <script src="game.js"></script>
+</body>
+</html>
