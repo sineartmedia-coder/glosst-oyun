@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Glamour Catch - Makyaj Macerası</title>
+    <title>Glosst - Lezzet Macerası</title>
     <link rel="stylesheet" href="style.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -18,6 +18,11 @@
                 <span class="label">SKOR:</span>
                 <span id="scoreText">000</span>
             </div>
+
+            <div id="timer-container">
+                <span class="label">SÜRE:</span>
+                <span id="timerText">00:00</span>
+            </div>
             
             <div id="lives-container">
                 <!-- Kalpler buraya JS ile eklenecek -->
@@ -26,23 +31,123 @@
             <div id="mute-container">
                 <button id="muteBtn">🔊</button>
             </div>
+
+            <!-- Özel Güçler UI -->
+            <div id="powerup-timers">
+                <div id="multiplier-timer" class="powerup-timer-circular hidden" style="display: none;">
+                    <div class="timer-circle" id="multiplier-circle" style="--progress: 100%">
+                        <div class="timer-circle-inner">
+                            <span id="multiplier-sec">30</span>
+                        </div>
+                    </div>
+                    <div class="timer-info-col">
+                        <img id="multiplier-icon" src="" alt="">
+                        <span id="multiplier-label">2X PUAN</span>
+                    </div>
+                </div>
+                
+                <div id="magnet-timer" class="powerup-timer-circular hidden" style="display: none;">
+                    <div class="timer-circle" id="magnet-circle" style="--progress: 100%">
+                        <div class="timer-circle-inner">
+                            <span id="magnet-sec">15</span>
+                        </div>
+                    </div>
+                    <div class="timer-info-col">
+                        <img id="magnet-icon" src="https://raw.githubusercontent.com/sineartmedia-coder/glosst/main/%C3%A7ek.png" alt="">
+                        <span>MIKNATIS</span>
+                    </div>
+                </div>
+            </div>
             
             <div id="start-screen" class="overlay">
-                <h1>GLAMOUR CATCH</h1>
-                <p>Makyaj malzemelerini topla, kırık aynalardan kaç!</p>
-                <button id="startBtn">OYUNA BAŞLA</button>
+                <div class="floating-items">
+                    <div class="f-item" style="left: 10%; animation-delay: 0s; background-image: url('assets/item1.png');"></div>
+                    <div class="f-item" style="left: 30%; animation-delay: 2s; background-image: url('assets/item5.png');"></div>
+                    <div class="f-item" style="left: 50%; animation-delay: 4s; background-image: url('assets/item3.png');"></div>
+                    <div class="f-item" style="left: 70%; animation-delay: 1s; background-image: url('assets/item8.png');"></div>
+                    <div class="f-item" style="left: 90%; animation-delay: 3s; background-image: url('assets/item11.png');"></div>
+                </div>
+                <div class="start-content">
+                    <div class="corner-bracket top-left"></div>
+                    <div class="corner-bracket top-right"></div>
+                    <div class="corner-bracket bottom-left"></div>
+                    <div class="corner-bracket bottom-right"></div>
+                    
+                    <h1 class="game-title">GLOSST</h1>
+                    <div class="title-underline"></div>
+                    <p>Ürünleri topla, engellerden kaç ve lezzetli ödülleri keşfet!</p>
+                    
+                    <button id="startBtn">MACERAYA BAŞLA</button>
+                    
+                    <div class="scanline"></div>
+                </div>
             </div>
             
             <div id="game-over-screen" class="overlay hidden">
-                <h1>EYVAH!</h1>
-                <p>Güzelliğin bozuldu! Skorun:</p>
-                <div id="finalScore">0</div>
-                <button id="restartBtn">TEKRAR DENE</button>
+                <div class="reward-content game-over-content">
+                    <h1 id="game-over-title">EYVAH!</h1>
+                    <p>Güzelliğin bozuldu!</p>
+                    
+                    <div class="reward-visuals">
+                        <div class="video-frame game-over-frame">
+                            <div class="frame-header">SON DURUM</div>
+                            <video id="game-over-video" loop muted playsinline class="reward-video chroma-video">
+                                <source src="https://raw.githubusercontent.com/sineartmedia-coder/glosst/main/Bayrak_Sallama_Videosu_Ye%C5%9Fil_Fon.mp4" type="video/mp4">
+                            </video>
+                        </div>
+                        <div class="reward-item-box">
+                            <span class="reward-label">SKORUN:</span>
+                            <div id="finalScore">0</div>
+                        </div>
+                    </div>
+                    
+                    <button id="restartBtn">TEKRAR DENE</button>
+                </div>
             </div>
 
             <div id="damage-flash"></div>
             
             <div id="level-notification" class="hidden">SEVİYE 1</div>
+
+            <!-- Seviye Ödül Ekranı -->
+            <div id="reward-overlay" class="overlay hidden">
+                <div class="reward-content">
+                    <h2 id="reward-title">TEBRİKLER!</h2>
+                    <p id="reward-desc">1.000 Puan Aldınız!</p>
+                    <div class="reward-visuals">
+                        <div class="video-frame">
+                            <div class="frame-header">SİHİRLİ AYNA</div>
+                            <video id="reward-video" autoplay loop muted playsinline class="reward-video">
+                                <source src="https://raw.githubusercontent.com/sineartmedia-coder/glosst/main/sevinme.mp4" type="video/mp4">
+                            </video>
+                        </div>
+                        <div class="reward-item-box">
+                            <span class="reward-label">HEDİYENİZ:</span>
+                            <img id="reward-img" src="" alt="Reward">
+                            <span id="reward-name">Özel Hediye</span>
+                        </div>
+                    </div>
+                    <button id="continueBtn">DEVAM ET</button>
+                </div>
+            </div>
+
+            <!-- Ödül Listesi Yan Menü -->
+            <div id="rewards-sidebar">
+                <h3>ÖDÜL LİSTESİ</h3>
+                <div id="rewards-list">
+                    <!-- 10 Seviye Slotu -->
+                    <div class="reward-slot" data-level="1"><span>1.000 Puan: ???</span><div class="slot-icon">?</div></div>
+                    <div class="reward-slot" data-level="2"><span>2.000 Puan: ???</span><div class="slot-icon">?</div></div>
+                    <div class="reward-slot" data-level="3"><span>3.000 Puan: ???</span><div class="slot-icon">?</div></div>
+                    <div class="reward-slot" data-level="4"><span>4.000 Puan: ???</span><div class="slot-icon">?</div></div>
+                    <div class="reward-slot" data-level="5"><span>5.000 Puan: ???</span><div class="slot-icon">?</div></div>
+                    <div class="reward-slot" data-level="6"><span>6.000 Puan: ???</span><div class="slot-icon">?</div></div>
+                    <div class="reward-slot" data-level="7"><span>7.000 Puan: ???</span><div class="slot-icon">?</div></div>
+                    <div class="reward-slot" data-level="8"><span>8.000 Puan: ???</span><div class="slot-icon">?</div></div>
+                    <div class="reward-slot" data-level="9"><span>9.000 Puan: ???</span><div class="slot-icon">?</div></div>
+                    <div class="reward-slot" data-level="10"><span>10.000 Puan: ???</span><div class="slot-icon">?</div></div>
+                </div>
+            </div>
         </div>
     </div>
     <script src="game.js"></script>

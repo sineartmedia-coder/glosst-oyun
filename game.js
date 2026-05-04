@@ -1,6 +1,7 @@
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 const scoreDisplay = document.getElementById('scoreText');
+const timerDisplay = document.getElementById('timerText');
 const startScreen = document.getElementById('start-screen');
 const gameOverScreen = document.getElementById('game-over-screen');
 const finalScoreDisplay = document.getElementById('finalScore');
@@ -10,6 +11,27 @@ const livesContainer = document.getElementById('lives-container');
 const damageFlash = document.getElementById('damage-flash');
 const levelNotification = document.getElementById('level-notification');
 const muteBtn = document.getElementById('muteBtn');
+const powerupTimersContainer = document.getElementById('powerup-timers');
+
+const rewardOverlay = document.getElementById('reward-overlay');
+const rewardImg = document.getElementById('reward-img');
+const rewardVideo = document.getElementById('reward-video');
+const gameOverVideo = document.getElementById('game-over-video');
+const rewardName = document.getElementById('reward-name');
+const rewardDesc = document.getElementById('reward-desc');
+const continueBtn = document.getElementById('continueBtn');
+const rewardsList = document.getElementById('rewards-list');
+
+const multiplierTimerEl = document.getElementById('multiplier-timer');
+const multiplierCircle = document.getElementById('multiplier-circle');
+const multiplierSec = document.getElementById('multiplier-sec');
+const multiplierIcon = document.getElementById('multiplier-icon');
+const multiplierLabel = document.getElementById('multiplier-label');
+
+const magnetTimerEl = document.getElementById('magnet-timer');
+const magnetCircle = document.getElementById('magnet-circle');
+const magnetSec = document.getElementById('magnet-sec');
+const magnetIcon = document.getElementById('magnet-icon');
 
 // Ses Efektleri (GitHub üzerinden direkt linkler)
 const sounds = {
@@ -19,6 +41,21 @@ const sounds = {
     gameover: new Audio('https://raw.githubusercontent.com/sineartmedia-coder/glosst/main/gameover.mp3'),
     bgMusic: new Audio()
 };
+
+// 10 Seviye Ödül Tanımları
+const levelRewards = [
+    { name: "Piko", img: "https://raw.githubusercontent.com/sineartmedia-coder/glosst/main/Piko.jpg" },
+    { name: "Ülker Çikolatalı Gofret", img: "https://raw.githubusercontent.com/sineartmedia-coder/glosst/main/%C3%9Clker%20%C3%87ikolatal%C4%B1%20Gofret.jpg" },
+    { name: "Snickers", img: "https://raw.githubusercontent.com/sineartmedia-coder/glosst/main/Snickers.jpg" },
+    { name: "Eti Karam Gurme", img: "https://raw.githubusercontent.com/sineartmedia-coder/glosst/main/Eti%20Karam%20Gurme.jpg" },
+    { name: "Milka", img: "https://raw.githubusercontent.com/sineartmedia-coder/glosst/main/Milka.jpg" },
+    { name: "Kinder Bueno", img: "https://raw.githubusercontent.com/sineartmedia-coder/glosst/main/Kinder%20Bueno.jpg" },
+    { name: "Toblerone", img: "https://raw.githubusercontent.com/sineartmedia-coder/glosst/main/Toblerone.jpg" },
+    { name: "Toffifee", img: "https://raw.githubusercontent.com/sineartmedia-coder/glosst/main/Toffifee.jpg" },
+    { name: "Ferrero Rocher", img: "https://raw.githubusercontent.com/sineartmedia-coder/glosst/main/Ferrero%20Rocher.jpg" },
+    { name: "Kinder Surprise Maxi", img: "https://raw.githubusercontent.com/sineartmedia-coder/glosst/main/Kinder%20Surprise%20Maxi.jpg" }
+];
+let unlockedRewards = [];
 
 // Çalma Listesi (Senin gönderdiğin güncel linkler)
 const bgTracks = [
@@ -70,6 +107,7 @@ for (let i = 1; i <= 13; i++) {
 // Oyun Değişkenleri
 let score = 0;
 let gameActive = false;
+let currentUnlockingLevel = 0; // Takip için yeni değişken
 let waitingForFirstMove = true; // Hareket bekleme kontrolü
 let isMuted = false;
 let items = [];
@@ -79,6 +117,15 @@ let spawnRate = 1200;
 let lastSpawn = 0;
 let gameSpeed = 5; 
 let lives = 9;
+let startTime = 0;
+let elapsedTime = 0;
+let timerInterval = null;
+
+// Özel Güç Durumları
+let activePowerups = {
+    multiplier: { active: false, value: 1, timer: 0, max: 30, label: 'SKOR', icon: '' },
+    magnet: { active: false, timer: 0, max: 15, label: 'MIKNATIS', icon: 'https://i.imgur.com/aCqzG2f.png' }
+};
 
 class Particle {
     constructor(x, y) {
@@ -118,7 +165,7 @@ const player = {
     y: 600, // Merdivenlerin üstü
     width: 200, // Varsayılan (görsel yüklenince güncellencek)
     height: 350, // Varsayılan (görsel yüklenince güncellencek)
-    targetHeight: 400, // Karakterin sahnedeki hedef boyu
+    targetHeight: 440, // Karakterin sahnedeki hedef boyu (Hafifçe büyütüldü)
     speed: 18,
     currentTilt: 0,
     targetTilt: 0,
@@ -137,6 +184,30 @@ assets.player.onload = () => {
 };
 assets.player.src = 'assets/player_final.png';
 
+// Özel Güç Görselleri (Senin linklerin, engeli aşmak için yerel olarak indirildi)
+assets.powerups = {
+    cat2x: new Image(),
+    cat3x: new Image(),
+    magnet: new Image(),
+    camera: new Image()
+};
+assets.powerups.cat2x.src = 'https://raw.githubusercontent.com/sineartmedia-coder/glosst/main/100puan.png';
+assets.powerups.cat3x.src = 'https://raw.githubusercontent.com/sineartmedia-coder/glosst/main/150puan.png';
+assets.powerups.magnet.src = 'https://raw.githubusercontent.com/sineartmedia-coder/glosst/main/%C3%A7ek.png';
+assets.powerups.camera.src = 'https://raw.githubusercontent.com/sineartmedia-coder/glosst/main/kamera.png';
+
+// Ceza İtemleri Görselleri
+assets.penalty = {
+    altin: new Image(),
+    bok: new Image(),
+    bomba: new Image(),
+    fare: new Image()
+};
+assets.penalty.altin.src = 'https://raw.githubusercontent.com/sineartmedia-coder/glosst/main/alt%C4%B1n.png';
+assets.penalty.bok.src = 'https://raw.githubusercontent.com/sineartmedia-coder/glosst/main/bok.png';
+assets.penalty.bomba.src = 'https://raw.githubusercontent.com/sineartmedia-coder/glosst/main/bomba.png';
+assets.penalty.fare.src = 'https://raw.githubusercontent.com/sineartmedia-coder/glosst/main/fare.png';
+
 // Giriş Kontrolleri
 const keys = {};
 
@@ -149,42 +220,74 @@ window.addEventListener('keyup', (e) => {
 });
 
 
+// Eşya puan tablosu (İsimsel olarak: 1-4: 10, 5-8: 15, 9-11: 20, 12-13: 25)
+const itemScoreMap = {
+    0: 10, 1: 10, 2: 10, 3: 10,
+    4: 15, 5: 15, 6: 15, 7: 15,
+    8: 20, 9: 20, 10: 20,
+    11: 25, 12: 25
+};
+
 class Item {
-    constructor(type) {
-        this.type = type; 
-        
-        // Havuz sistemi ile ürün seçimi ve orantılı ölçeklendirme
+    constructor(type, subType = null) {
+        this.type = type; // 'good', 'bad', 'powerup'
+        this.subType = subType; // powerup için: 'cat2x', 'cat3x', 'magnet', 'camera'
         if (this.type === 'good') {
             if (itemPool.length === 0) refillItemPool();
             const randomIndex = itemPool.pop();
             this.image = assets.items[randomIndex];
+            this.points = itemScoreMap[randomIndex] || 10;
             
-            // TÜM GÖRSELLER İÇİN AYNI EBAT MANTIĞI (Maksimum 220px Kutuya Sığdırma)
-            const maxSize = 220; // Tüm öğeler için izin verilen maksimum genişlik veya yükseklik
-            
+            // TÜM GÖRSELLER İÇİN AYNI EBAT MANTIĞI
+            const maxSize = 220; 
             const ratio = (this.image.naturalWidth && this.image.naturalHeight) 
                 ? (this.image.naturalWidth / this.image.naturalHeight) 
                 : 1;
 
             if (ratio > 1) {
-                // Eğer görsel geniş ise (örn: 12.png), genişliği sabitle, yüksekliği daralt
                 this.width = maxSize;
                 this.height = maxSize / ratio;
             } else {
-                // Eğer görsel uzun veya kareyse, yüksekliği sabitle, genişliği daralt
                 this.height = maxSize;
                 this.width = maxSize * ratio;
             }
-        } else {
-            this.image = assets.brokenMirror;
-            this.width = 130; 
-            this.height = 130;
+        } else if (this.type === 'bad') {
+            this.image = assets.penalty[this.subType];
+            if (this.subType === 'altin' || this.subType === 'fare') {
+                this.width = 160;
+                this.height = 160;
+            } else if (this.subType === 'bomba') {
+                this.width = 130;
+                this.height = 130;
+            } else {
+                this.width = 110;
+                this.height = 110;
+            }
+        } else if (this.type === 'powerup') {
+            this.image = assets.powerups[this.subType];
+            this.width = 150;
+            this.height = 150;
         }
+        
+        this.isExploding = false;
+        this.explosionTimer = 0;
+        this.explosionRadius = 400; 
         
         this.x = Math.random() * (canvas.width - this.width);
         this.y = -this.height;
-        this.speed = (Math.random() * 2 + gameSpeed);
-        this.dx = 0; // Yatay hız (Diyagonal düşüş için)
+
+        // Hız sistemi: 1 tık ileri taşındı (Başlangıç 5 → Max 13)
+        const progress = Math.min(1, score / 10000);
+        let baseSpeed;
+        if (progress <= 0.5) {
+            // Faz 1: 5 → 8 (Eski Seviye 2-3 gibi başlar)
+            baseSpeed = 5 + (progress * 2) * 3;
+        } else {
+            // Faz 2: 8 → 13
+            baseSpeed = 8 + ((progress - 0.5) * 2) * 5;
+        }
+        this.speed = baseSpeed * (0.6 + Math.random() * 0.8);
+        this.dx = 0;
     }
 
     update() {
@@ -203,26 +306,91 @@ class Item {
     }
 
     draw() {
-        ctx.drawImage(this.image, this.x, this.y, this.width, this.height);
+        if (this.isExploding) {
+            // Patlama görsel efekti
+            const alpha = 1 - (this.explosionTimer / 30);
+            ctx.save();
+            ctx.beginPath();
+            ctx.arc(this.x + this.width / 2, this.y + this.height / 2, this.explosionRadius * (this.explosionTimer / 30), 0, Math.PI * 2);
+            ctx.fillStyle = `rgba(255, 100, 0, ${alpha * 0.5})`;
+            ctx.fill();
+            ctx.strokeStyle = `rgba(255, 100, 0, ${alpha})`;
+            ctx.lineWidth = 5;
+            ctx.stroke();
+            ctx.restore();
+            return;
+        }
+        if (this.image && this.image.complete && this.image.naturalWidth !== 0) {
+            ctx.drawImage(this.image, this.x, this.y, this.width, this.height);
+        }
     }
 }
 
-let currentLevel = 1;
+let lastMilestone = 0;
 
-function checkLevel() {
-    let newLevel = 1;
-    if (score >= 500) newLevel = 4;
-    else if (score >= 250) newLevel = 3;
-    else if (score >= 100) newLevel = 2;
-
-    if (newLevel > currentLevel) {
-        currentLevel = newLevel;
-        showLevelNotification(currentLevel);
+function updateDifficulty() {
+    const progress = Math.min(1, score / 10000);
+    
+    // Spawn hızı 1 tık ileri taşındı (1500ms → 400ms)
+    if (progress <= 0.5) {
+        const p1 = progress * 2;
+        spawnRate = Math.max(900, Math.round(1500 - p1 * 600));
+    } else {
+        const p2 = (progress - 0.5) * 2;
+        spawnRate = Math.max(400, Math.round(900 - p2 * 500));
+    }
+    
+    // Her 1000 puanda ödül ekranını aç
+    const currentMilestone = Math.floor(score / 1000);
+    if (currentMilestone > lastMilestone && currentMilestone <= 10) {
+        lastMilestone = currentMilestone;
+        showRewardOverlay(currentMilestone);
         const s = sounds.levelup.cloneNode();
-        s.volume = 0.5;
+        s.volume = 0.4;
         s.play();
     }
 }
+
+function showRewardOverlay(level) {
+    gameActive = false; // Oyunu durdur
+    currentUnlockingLevel = level; // Mevcut seviyeyi kaydet
+    
+    const reward = levelRewards[level - 1];
+    rewardImg.src = reward.img;
+    rewardName.innerText = reward.name;
+    rewardDesc.innerText = `${score.toLocaleString()} Puan Aldınız!`;
+    
+    // Sidebar'ı güncelle
+    const slot = document.querySelector(`.reward-slot[data-level="${level}"]`);
+    if (slot) {
+        slot.classList.add('unlocked');
+        slot.querySelector('.slot-icon').innerText = '✓';
+    }
+    
+    // Videoyu baştan başlat
+    if (rewardVideo) {
+        rewardVideo.currentTime = 0;
+        rewardVideo.play().catch(e => console.log("Video oynatılamadı."));
+    }
+    
+    rewardOverlay.classList.remove('hidden');
+}
+
+continueBtn.addEventListener('click', () => {
+    rewardOverlay.classList.add('hidden');
+    
+    // Sidebar'daki gizemli ismi aç
+    if (currentUnlockingLevel > 0) {
+        const reward = levelRewards[currentUnlockingLevel - 1];
+        const slot = document.querySelector(`.reward-slot[data-level="${currentUnlockingLevel}"]`);
+        if (slot) {
+            slot.querySelector('span').innerText = `${currentUnlockingLevel * 1000} Puan: ${reward.name}`;
+            slot.classList.add('revealed');
+        }
+    }
+    
+    gameActive = true; // Oyunu devam ettir
+});
 
 function showLevelNotification(level) {
     levelNotification.innerText = 'SEVİYE ' + level;
@@ -237,44 +405,99 @@ function showLevelNotification(level) {
 
 function spawnItem() {
     const now = Date.now();
-    if (now - lastSpawn > spawnRate) {
-        let spawnCount = 1;
-        // Seviyelere göre çoklu düşüş oranları
-        if (currentLevel >= 3 && Math.random() < 0.4) spawnCount = 2; 
-        if (currentLevel >= 4 && Math.random() < 0.3) spawnCount = 3; 
+    if (now - lastSpawn <= spawnRate) return;
 
-        for (let i = 0; i < spawnCount; i++) {
-            // Puan arttıkça kötü eşya gelme ihtimali artar (Maks %60)
-            const badChance = Math.min(0.2 + (currentLevel * 0.1), 0.6);
-            const type = Math.random() < badChance ? 'bad' : 'good';
-            
-            const newItem = new Item(type);
-            
-            // Çapraz (diyagonal) düşüş ekle (Seviye 2 ve üstü)
-            if (currentLevel >= 2 && Math.random() < 0.5) {
-                newItem.dx = (Math.random() - 0.5) * (gameSpeed * 1.5);
-            }
-            
-            // Açılış pozisyonunu diğer elemanlarla çakışmaması için kaydır
-            if (i > 0) {
-                newItem.x = (newItem.x + 300) % (canvas.width - newItem.width); 
-            }
-            
-            items.push(newItem);
-        }
-        
-        lastSpawn = now;
-        
-        // Hızı ve sıklığı ayarla
-        spawnRate = Math.max(400, 2500 - (score * 2.5)); // Çok daha hızlı bir ivmelenme
-        gameSpeed = 2 + (score / 1500) * 3; 
+    const progress = Math.min(1, score / 10000);
+
+    // --- EKRANDA HEDEFLENEBİLECEK ITEM SAYISI ---
+    // Kaos seviyesi ve item sayısı 1 tık ileri taşındı
+    let targetOnScreen;
+    if (progress <= 0.5) {
+        const p1 = progress * 2;
+        targetOnScreen = 5 + Math.floor(p1 * 5); // 5 → 10
+    } else {
+        const p2 = (progress - 0.5) * 2;
+        targetOnScreen = 10 + Math.floor(p2 * 5); // 10 → 15
     }
+
+    // Şu an ekranda kaç item var? (patlamaları say ma)
+    const activeCount = items.filter(i => !i.isExploding).length;
+    const toSpawn = Math.max(0, Math.min(3, targetOnScreen - activeCount));
+
+    // Ekran zaten doluysa sadece ritmi koru
+    if (toSpawn === 0) {
+        lastSpawn = now;
+        return;
+    }
+
+    let badSpawnedInThisWave = 0;
+    // Cezaların sayısını 1'er artırarak daha zorlayıcı hale getirildi
+    const maxBadPerWave = progress > 0.5 ? 3 : 2;
+
+    for (let i = 0; i < toSpawn; i++) {
+        const rand = Math.random();
+        let type, subType = null;
+
+        if (rand < 0.08) { // Güç gelme şansı %5'ten %8'e çıkarıldı
+            type = 'powerup';
+            const pRand = Math.random() * 13;
+            if (pRand < 4) subType = 'camera'; // Kamera şansı artırıldı
+            else if (pRand < 7) subType = 'magnet';
+            else if (pRand < 10) subType = 'cat3x';
+            else subType = 'cat2x';
+        } else {
+            // Ceza oranı 1 tık ileri taşındı (Başlangıçta %30 ceza)
+            let badChance;
+            if (progress <= 0.5) {
+                const p1 = progress * 2;
+                badChance = 0.30 + p1 * 0.30; // %30 -> %60
+            } else {
+                const p2 = (progress - 0.5) * 2;
+                badChance = 0.60 + p2 * 0.20; // %60 -> %80
+            }
+
+            if (Math.random() < badChance && badSpawnedInThisWave < maxBadPerWave) {
+                type = 'bad';
+                const badRand = Math.random();
+                if (badRand < 0.06) subType = 'bomba';
+                else if (badRand < 0.36) subType = 'altin';
+                else if (badRand < 0.66) subType = 'bok';
+                else subType = 'fare';
+                badSpawnedInThisWave++;
+            } else {
+                type = 'good';
+            }
+        }
+
+        const newItem = new Item(type, subType);
+
+        // Çapraz düşüş 1 tık ileri taşındı (Başlangıçtan itibaren var)
+        let diagonalChance;
+        if (progress <= 0.5) {
+            diagonalChance = 0.20 + (progress * 2) * 0.30; // %20 -> %50
+        } else {
+            diagonalChance = 0.50 + ((progress - 0.5) * 2) * 0.40; // %50 -> %90
+        }
+        if (Math.random() < diagonalChance) {
+            newItem.dx = (Math.random() - 0.5) * (newItem.speed * 0.8);
+        }
+
+        // Birden fazla item'da X konumlarını ekrana yay
+        if (i > 0 || toSpawn > 1) {
+            const section = canvas.width / Math.max(toSpawn, 2);
+            newItem.x = section * i + Math.random() * Math.max(0, section - newItem.width);
+            newItem.x = Math.max(0, Math.min(canvas.width - newItem.width, newItem.x));
+        }
+
+        items.push(newItem);
+    }
+    lastSpawn = now;
 }
 
 function update() {
     if (!gameActive) return;
 
-    checkLevel();
+    updateDifficulty();
 
     // Karakter Hareketi ve Animasyon Hedefleri
     player.targetTilt = 0;
@@ -321,9 +544,39 @@ function update() {
 
     for (let i = items.length - 1; i >= 0; i--) {
         const item = items[i];
-        item.update();
+        
+        // Mıknatıs Etkisi: Eğer mıknatıs aktifse ve eşya 'iyi' ise karakteri takip etsin
+        if (activePowerups.magnet.active && (item.type === 'good' || item.type === 'powerup')) {
+            const centerX = player.x + player.width / 2;
+            const itemCenterX = item.x + item.width / 2;
+            const dist = centerX - itemCenterX;
+            if (Math.abs(dist) < 800) { // Belirli bir mesafedeyse çek
+                const moveSpeed = 12; // Çekme hızı
+                if (Math.abs(dist) < moveSpeed) {
+                    item.x += dist; // Hedefe ulaştıysa direkt üstüne koy, titremeyi önle
+                } else {
+                    item.x += Math.sign(dist) * moveSpeed; // Karakterin üzerine doğru kay
+                }
+                item.y += 2; // Çapraz bir çekim hissi için aşağı düşüş hızlansa iyi olur
+            }
+        }
+
+        item.y += item.speed;
+        item.x += item.dx;
+
+        // Ekran yanlarından taşmasını engelle (Duvarlardan seker)
+        if (item.x < 0) { 
+            item.x = 0; 
+            item.dx *= -1; 
+        }
+        if (item.x > canvas.width - item.width) { 
+            item.x = canvas.width - item.width; 
+            item.dx *= -1; 
+        }
 
         // Çarpışma Algılama (Ölçeklenebilir ve hassas hitbox)
+        if (item.isExploding) continue;
+
         const playerHitbox = {
             x: player.x + player.width * 0.2,
             y: player.y + player.height * 0.1,
@@ -338,7 +591,8 @@ function update() {
             item.y + item.height > playerHitbox.y
         ) {
             if (item.type === 'good') {
-                score += 10;
+                const add = item.points * activePowerups.multiplier.value;
+                score += add;
                 scoreDisplay.innerText = score.toString().padStart(3, '0');
                 player.currentScale = 1.15; // Pop efekti
                 
@@ -347,15 +601,118 @@ function update() {
                 s.play();
                 
                 items.splice(i, 1);
-            } else {
-                takeDamage(i);
+            } else if (item.type === 'bad') {
+                if (item.subType === 'bomba') {
+                    // Bomba doğrudan çarpınca hem can gider hem 200 puan
+                    score = Math.max(0, score - 200);
+                    scoreDisplay.innerText = score.toString().padStart(3, '0');
+                    takeDamage(i, true); // true = patlama efektiyle sil, hasar alındı
+                } else if (item.subType === 'altin') {
+                    takeDamage(i); // Altın can götürür
+                } else if (item.subType === 'bok') {
+                    score = Math.max(0, score - 35);
+                    scoreDisplay.innerText = score.toString().padStart(3, '0');
+                    items.splice(i, 1);
+                    const s = sounds.hit.cloneNode();
+                    s.volume = 0.3;
+                    s.play();
+                } else if (item.subType === 'fare') {
+                    score = Math.max(0, score - 20);
+                    scoreDisplay.innerText = score.toString().padStart(3, '0');
+                    items.splice(i, 1);
+                    const s = sounds.hit.cloneNode();
+                    s.volume = 0.3;
+                    s.play();
+                } else {
+                    takeDamage(i); // Varsayılan kırık ayna
+                }
+            } else if (item.type === 'powerup') {
+                applyPowerup(item.subType);
+                items.splice(i, 1);
+                
+                const s = sounds.levelup.cloneNode();
+                s.volume = 0.5;
+                s.play();
             }
             continue;
         }
 
-        // Ekrandan çıkanları sil
-        if (item.y > canvas.height) {
-            items.splice(i, 1);
+        // Bomba patlama süreci
+        if (item.isExploding) {
+            item.explosionTimer++;
+            if (item.explosionTimer > 30) {
+                items.splice(i, 1);
+            }
+            continue;
+        }
+
+        // Ekrandan çıkanları sil veya bombayı patlat
+        if (item.y > canvas.height - 100) { // Yere inince (Hafif bir ofsetle)
+            if (item.type === 'bad' && item.subType === 'bomba') {
+                explodeBomb(item);
+            } else if (item.y > canvas.height) {
+                items.splice(i, 1);
+            }
+        }
+    }
+}
+
+function applyPowerup(type) {
+    if (type === 'cat2x') {
+        activePowerups.multiplier.active = true;
+        activePowerups.multiplier.value = 2;
+        activePowerups.multiplier.timer = activePowerups.multiplier.max * 60; // 30 saniye
+        multiplierIcon.src = 'https://raw.githubusercontent.com/sineartmedia-coder/glosst/main/100puan.png';
+        multiplierLabel.innerText = '2X PUAN';
+        multiplierTimerEl.classList.remove('hidden');
+        multiplierTimerEl.style.display = 'flex';
+    } else if (type === 'cat3x') {
+        activePowerups.multiplier.active = true;
+        activePowerups.multiplier.value = 3;
+        activePowerups.multiplier.timer = activePowerups.multiplier.max * 60; // 30 saniye
+        multiplierIcon.src = 'https://raw.githubusercontent.com/sineartmedia-coder/glosst/main/150puan.png';
+        multiplierLabel.innerText = '3X PUAN';
+        multiplierTimerEl.classList.remove('hidden');
+        multiplierTimerEl.style.display = 'flex';
+    } else if (type === 'magnet') {
+        activePowerups.magnet.active = true;
+        activePowerups.magnet.timer = activePowerups.magnet.max * 60; // 15 saniye
+        magnetIcon.src = 'https://raw.githubusercontent.com/sineartmedia-coder/glosst/main/%C3%A7ek.png';
+        magnetTimerEl.classList.remove('hidden');
+        magnetTimerEl.style.display = 'flex';
+    } else if (type === 'camera') {
+        if (lives < 9) {
+            lives++;
+            updateLivesUI();
+        }
+    }
+}
+
+function updatePowerupTimers() {
+    if (activePowerups.multiplier.active) {
+        activePowerups.multiplier.timer--;
+        if (activePowerups.multiplier.timer <= 0) {
+            activePowerups.multiplier.active = false;
+            activePowerups.multiplier.value = 1;
+            multiplierTimerEl.classList.add('hidden');
+            multiplierTimerEl.style.display = 'none';
+        } else {
+            const progress = (activePowerups.multiplier.timer / (activePowerups.multiplier.max * 60)) * 100;
+            multiplierCircle.style.setProperty('--progress', progress + '%');
+            multiplierSec.innerText = Math.ceil(activePowerups.multiplier.timer / 60);
+        }
+    }
+
+    if (activePowerups.magnet.active) {
+        activePowerups.magnet.timer--;
+        if (activePowerups.magnet.timer <= 0) {
+            activePowerups.magnet.active = false;
+            magnetTimerEl.classList.add('hidden');
+            magnetTimerEl.style.display = 'none';
+        } else {
+            const progress = (activePowerups.magnet.timer / (activePowerups.magnet.max * 60)) * 100;
+            magnetCircle.style.setProperty('--progress', progress + '%');
+            magnetSec.innerText = Math.ceil(activePowerups.magnet.timer / 60);
         }
     }
 }
@@ -417,16 +774,28 @@ function draw() {
 
 function gameLoop() {
     update();
+    updatePowerupTimers();
     draw();
     requestAnimationFrame(gameLoop);
 }
 
 function startGame() {
     score = 0;
-    currentLevel = 1;
+    lastMilestone = 0;
     lives = 9;
     items = [];
     waitingForFirstMove = true; // Başa al
+    elapsedTime = 0;
+    updateTimerUI();
+    if (timerInterval) clearInterval(timerInterval);
+
+    // Güçleri sıfırla
+    activePowerups.multiplier.active = false;
+    activePowerups.multiplier.value = 1;
+    activePowerups.multiplier.timer = 0;
+    activePowerups.magnet.active = false;
+    activePowerups.magnet.timer = 0;
+
     refillItemPool(); // Oyun başında havuzu doldur
     gameSpeed = 2; 
     spawnRate = 2500; // Başlangıçta daha ferah (2.5 saniye)
@@ -435,6 +804,27 @@ function startGame() {
     gameActive = true;
     startScreen.classList.add('hidden');
     gameOverScreen.classList.add('hidden');
+    rewardOverlay.classList.add('hidden');
+    
+    // Timer'ı başlat (Hareket bekleme kontrolü bittiğinde değil, oyun başladığında)
+    startTime = Date.now();
+    timerInterval = setInterval(() => {
+        if (gameActive && !waitingForFirstMove) {
+            elapsedTime = Math.floor((Date.now() - startTime) / 1000);
+            updateTimerUI();
+        } else if (!waitingForFirstMove && gameActive === false) {
+             // Oyun duraklatıldığında (ödül ekranı vb.) startTime'ı güncelle ki süre kaldığı yerden devam etsin
+             startTime = Date.now() - (elapsedTime * 1000);
+        }
+    }, 1000);
+    
+    // Yan menü ikonlarını ve isimlerini sıfırla
+    document.querySelectorAll('.reward-slot').forEach(slot => {
+        const level = slot.getAttribute('data-level');
+        slot.classList.remove('unlocked', 'revealed');
+        slot.querySelector('.slot-icon').innerText = '?';
+        slot.querySelector('span').innerText = `${level}.000 Puan: ???`;
+    });
     
     // Müziği oynat listesinin ilk/mevcut şarkısından başlat
     if (sounds.bgMusic.currentTime === 0 && sounds.bgMusic.paused) {
@@ -478,10 +868,17 @@ function updateLivesUI() {
     }
 }
 
-function takeDamage(itemIndex) {
+function takeDamage(itemIndex, isExplosion = false) {
     lives--;
-    items.splice(itemIndex, 1);
     updateLivesUI();
+    
+    if (isExplosion) {
+        // Bombayı patlat ve partiküller ekle (Hasar zaten alındı flag'i gönder)
+        const item = items[itemIndex];
+        explodeBomb(item, true);
+    } else {
+        items.splice(itemIndex, 1);
+    }
     
     const s = sounds.hit.cloneNode();
     s.volume = 0.5;
@@ -498,13 +895,72 @@ function takeDamage(itemIndex) {
     }
 }
 
+function explodeBomb(bomb, damageAlreadyDealt = false) {
+    if (bomb.isExploding) return;
+    bomb.isExploding = true;
+    bomb.speed = 0;
+    bomb.dx = 0;
+    
+    // Ses efekti (Eğer bomba sesi yoksa mevcut hit sesini biraz daha kalın çalabiliriz)
+    const s = sounds.hit.cloneNode();
+    s.playbackRate = 0.5;
+    s.volume = 0.8;
+    s.play();
+
+    const bombCenterX = bomb.x + bomb.width / 2;
+    const bombCenterY = bomb.y + bomb.height / 2;
+
+    // Yakınlık kontrolü (Eğer bomba yerdeyken patlarsa ve henüz hasar alınmadıysa)
+    if (!damageAlreadyDealt) {
+        const playerCenterX = player.x + player.width / 2;
+        const playerCenterY = player.y + player.height / 2;
+        
+        const dist = Math.sqrt(Math.pow(playerCenterX - bombCenterX, 2) + Math.pow(playerCenterY - bombCenterY, 2));
+        
+        if (dist < bomb.explosionRadius) {
+            score = Math.max(0, score - 200);
+            scoreDisplay.innerText = score.toString().padStart(3, '0');
+            lives--;
+            updateLivesUI();
+            damageFlash.classList.add('active');
+            setTimeout(() => damageFlash.classList.remove('active'), 100);
+            if (lives <= 0) gameOver();
+        }
+    }
+
+    // Patlama partikülleri
+    for (let i = 0; i < 20; i++) {
+        const p = new Particle(bombCenterX, bombCenterY);
+        p.speedX = (Math.random() - 0.5) * 15;
+        p.speedY = (Math.random() - 0.5) * 15;
+        p.color = `rgba(255, ${Math.random() * 100 + 100}, 0, 0.8)`;
+        p.life = 1.0;
+        p.size = Math.random() * 15 + 10;
+        particles.push(p);
+    }
+}
+
 function gameOver() {
     gameActive = false;
+    if (timerInterval) clearInterval(timerInterval);
     finalScoreDisplay.innerText = score;
+    
+    // Videoyu baştan başlat ve oynat
+    if (gameOverVideo) {
+        gameOverVideo.currentTime = 0;
+        gameOverVideo.play().catch(e => console.log("Game over videosu oynatılamadı."));
+    }
+    
     gameOverScreen.classList.remove('hidden');
     
     sounds.bgMusic.pause();
     sounds.gameover.play();
+}
+
+function updateTimerUI() {
+    const mins = Math.floor(elapsedTime / 60);
+    const secs = elapsedTime % 60;
+    timerDisplay.innerText = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
 }
 
 startBtn.addEventListener('click', startGame);
